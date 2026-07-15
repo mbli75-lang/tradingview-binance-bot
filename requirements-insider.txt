@@ -1,0 +1,7 @@
+# Insider-Tracker – beroenden (separat från Binance-botens requirements.txt)
+SQLAlchemy==2.0.36
+PyYAML==6.0.2
+requests==2.31.0
+pytest==8.3.3
+# Postgres/Supabase (aktiveras när DATABASE_URL pekar på Postgres):
+# psycopg[binary]==3.2.3

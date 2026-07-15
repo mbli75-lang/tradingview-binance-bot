@@ -1,0 +1,76 @@
+# Insider-Tracker – central konfiguration
+# Allt agerbart är konfigurerbart här (kravspec: icke-funktionella krav).
+# DATABASE_URL i miljön overridar database.url nedan.
+
+database:
+  # SQLite lokalt först. Byt till Supabase/Postgres genom att sätta miljövariabeln
+  # DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db  (schemat är identiskt).
+  url: "sqlite:///data/insider_tracker.db"
+
+fi:
+  # Verifierad stabil export-endpoint (GET, text/csv, UTF-16, ';'-separerad).
+  base_url: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
+  search_function_type: "Insyn"
+  # Exporten kapar vid detta antal rader och ignorerar Page-parametern ->
+  # backfill använder datumfönster med adaptiv split när ett fönster når taket.
+  export_row_cap: 1000
+  backfill_years: 3
+  request_timeout: 60
+  # Startvärde för fönsterstorlek vid backfill (dagar). Splittas automatiskt vid taket.
+  initial_window_days: 7
+
+ingest:
+  # Karaktär (FI:s transaktionstyp) -> kanonisk riktning. Endast dessa behålls.
+  characters:
+    buy: ["Förvärv"]
+    sell: ["Avyttring"]
+  # Instrumenttyp som behålls (endast aktier, ej optioner/teckningsrätter).
+  instrument_types: ["Aktie"]
+  # Kanonisk marknadsplats -> FI:s Handelsplats-strängar.
+  # OBS: FI särskiljer inte Nasdaq-segment (Small Cap). Small Cap-filtret
+  # appliceras senare via Börsdata-segmentmappning (steg 2). Här ingestas hela
+  # Nasdaq Stockholm så vi slipper backfilla om.
+  marketplaces:
+    "Spotlight": ["SPOTLIGHT STOCK MARKET"]
+    "First North": ["FIRST NORTH SWEDEN", "FIRST NORTH SWEDEN - SME GROWTH MARKET"]
+    "Nasdaq Stockholm": ["NASDAQ STOCKHOLM AB"]
+  # Status som exkluderas helt (makulerade poster).
+  exclude_status: ["Makulerad"]
+
+# Round-trip slippage per kanonisk marknadsplats (köp + sälj), används i steg 3.
+slippage:
+  "Spotlight": 0.040
+  "First North": 0.025
+  "Nasdaq Stockholm": 0.015
+  "Nasdaq Stockholm Small Cap": 0.015
+
+# Scoring-parametrar (steg 3) – definierade här redan nu så de är konfigurerbara.
+scoring:
+  min_trades: 3
+  return_weights: { m1: 0.2, m3: 0.5, m6: 0.3 }
+  boost_roles: ["Verkställande direktör", "Ekonomichef", "CFO", "VD"]
+  boost_amount_sek: 200000
+  boost_holding_increase_pct: 0.20
+  penalty_related_party: 0.5
+  symbolic_amount_sek: 50000
+  cluster_min_insiders: 3
+  cluster_window_days: 14
+
+# Realtidsflaggning (steg 4).
+alerts:
+  score_percentile_threshold: 0.80   # topp 20 % av scorade insiders
+  liquidity_warning_sek_per_day: 500000
+
+# Backtest-fönster i handelsdagar efter publiceringsdatum.
+backtest:
+  horizons_trading_days: [21, 63, 126]
+  benchmark: "OMXSPI"
+
+telegram:
+  enabled: true
+  # Token/chat-id läses från miljövariablerna TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.
+  send_errors: true
+
+logging:
+  file: "logs/insider_tracker.log"
+  level: "INFO"
