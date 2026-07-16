@@ -129,6 +129,33 @@ Migration: `insider_tracker/db/migration_step5.sql`.
 0 8 1 * *  cd /path/to/repo && python -m insider_tracker.exits.run >> logs/cron.log 2>&1
 ```
 
+## Paper trading (framåt-validering, out-of-sample)
+
+Backtesten är in-sample. Det enda ärliga testet är att logga live-signaler framåt
+och jämföra mot vad backtesten lovade. `paper_trades` loggar en hypotetisk position
+per signal med **båda entry-priserna** – teoretiskt (signaldagens stängning) och
+realistiskt (nästa handelsdags öppning). Skillnaden = exekveringskostnaden.
+`executable`-flaggan separerar likvida från illikvida (< 500k SEK/dag).
+
+```bash
+python -m insider_tracker.paper.run --track            # uppdatera paper_trades (dagligt)
+python -m insider_tracker.paper.run --weekly           # veckorapport (Telegram)
+python -m insider_tracker.paper.run --evaluate         # jämförelsetabell (manuellt, 3/6 mån)
+```
+Migration: `insider_tracker/db/migration_paper.sql`.
+
+> Spread finns inte i EOD-data, så realistiskt entry = nästa dags öppning (mätbart);
+> ren spread kräver quote-data. Seedade signaler är fortfarande in-sample – genuint
+> OOS-underlag ackumuleras framåt i tiden. Kör `--evaluate` efter 3 och 6 mån live.
+
+### Cron (utöver den dagliga pipelinen)
+```
+# lägg till i den dagliga körningen:
+&& python -m insider_tracker.paper.run --track
+# veckorapport (måndagar 08:00):
+0 8 * * 1  cd /path/to/repo && python -m insider_tracker.paper.run --weekly >> logs/cron.log 2>&1
+```
+
 ## Databas
 
 DB-agnostiskt SQLAlchemy-schema. Lokalt SQLite som standard; byt till Supabase/Postgres
