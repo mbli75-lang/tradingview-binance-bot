@@ -79,6 +79,35 @@ Migration för befintlig DB: `insider_tracker/db/migration_step3.sql`.
 > efter slippage (snitt −2 till −3 % överavkastning). Edgen ligger i att *välja*
 > högt scorade insiders/kluster – det är precis vad scoring-/klustermodulerna gör.
 
+## Steg 4: Realtidsflaggning (Telegram)
+
+Daglig körning efter ingest + backtest. Tre triggrar, dedupe via `signals`
+(idempotent):
+1. **Köp** av insider med score i topp-percentilen (default topp 20 %,
+   `alerts.score_percentile_threshold`). Symbolköp under `min_amount_sek` triggar inte.
+2. **Klusterköp** (≥3 unika insiders / 14 dagar).
+3. **Info: försäljning** av insider som tidigare fått köpflagg.
+
+Alert innehåller bolag, marknadsplats/segment, insider + roll, belopp, insiderns
+historik (antal köp, snitt 3m), snitt daglig omsättning 30d (likviditetsvarning
+< 500k SEK/dag) och länk till FI.
+
+```bash
+python -m insider_tracker.alerts.run_alerts --dry-run   # förhandsvisa, skicka inget
+python -m insider_tracker.alerts.run_alerts             # skarpt (skickar + sparar signals)
+```
+Migration: `insider_tracker/db/migration_step4.sql`. Telegram via
+`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`.
+
+### Daglig pipeline (cron, vardagar 18:00 CET)
+```
+0 18 * * 1-5  cd /path/to/repo && \
+  python -m insider_tracker.ingest.daily && \
+  python -m insider_tracker.prices.daily_prices && \
+  python -m insider_tracker.backtest.run && \
+  python -m insider_tracker.alerts.run_alerts >> logs/cron.log 2>&1
+```
+
 ## Databas
 
 DB-agnostiskt SQLAlchemy-schema. Lokalt SQLite som standard; byt till Supabase/Postgres
