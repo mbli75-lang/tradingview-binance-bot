@@ -38,6 +38,27 @@ genom att sätta `DATABASE_URL` (ingen kodändring). Tabeller: `companies`, `ins
 
 Ingest är **idempotent** – dedupe på `(person, ISIN, transaktionsdatum, volym, pris)`.
 
+### Persistens-backends
+
+`config.storage.backend` (`auto` | `sqlalchemy` | `supabase_rest`):
+
+- **sqlalchemy** – SQLite lokalt, eller Postgres via `DATABASE_URL` (port 5432).
+- **supabase_rest** – Supabase via **PostgREST över HTTPS/443**. Används när miljöns
+  nätverkspolicy blockerar Postgres-porten (5432) men släpper igenom HTTPS.
+- **auto** (default) – väljer `supabase_rest` om `SUPABASE_URL` +
+  `SUPABASE_SERVICE_ROLE_KEY` finns, annars `sqlalchemy`.
+
+#### Sätta upp Supabase (REST-vägen)
+1. Skapa tabellerna: kör `insider_tracker/db/schema_supabase.sql` en gång i
+   Supabase **SQL Editor** (PostgREST kan inte köra DDL).
+2. Sätt miljövariabler (t.ex. i `.env`, gitignorerad):
+   ```
+   SUPABASE_URL=https://<ref>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<service_role JWT från Settings → API>
+   ```
+   `service_role` kringgår RLS – behandla som ett lösenord.
+3. Kör ingest som vanligt (`backend: auto` plockar upp REST automatiskt).
+
 ## Användning
 
 ```bash

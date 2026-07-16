@@ -19,10 +19,10 @@ from dataclasses import asdict
 from datetime import date, timedelta
 
 from insider_tracker.config import load_config
-from insider_tracker.db.session import init_db, new_session
 from insider_tracker.ingest.fi_client import FIClient
 from insider_tracker.ingest.parser import parse_record
-from insider_tracker.ingest.repository import IngestStats, Repository
+from insider_tracker.ingest.repository import IngestStats
+from insider_tracker.ingest.sink import make_sink
 from insider_tracker.logging_setup import setup_logging
 from insider_tracker.notify.telegram import send_error
 
@@ -59,36 +59,33 @@ def run_backfill(
     client = FIClient(cfg)
 
     total = IngestStats()
-    session = None
-    repo = None
-    if not dry_run:
-        init_db()
-        session = new_session()
-        repo = Repository(session)
+    sink = None if dry_run else make_sink(cfg)
 
     sample_records: list = []
     total_raw = 0
     total_parsed = 0
 
     logger.info("Backfill %s .. %s (dry_run=%s)", from_date, to_date, dry_run)
-    for win_from, win_to, rows in client.iter_windows(from_date, to_date):
-        total_raw += len(rows)
-        parsed = [r for r in (parse_record(row, cfg) for row in rows) if r is not None]
-        total_parsed += len(parsed)
+    try:
+        for win_from, win_to, rows in client.iter_windows(from_date, to_date):
+            total_raw += len(rows)
+            parsed = [r for r in (parse_record(row, cfg) for row in rows) if r is not None]
+            total_parsed += len(parsed)
 
-        if dry_run:
-            if len(sample_records) < max(sample, 1):
-                sample_records.extend(parsed[: max(sample, 1) - len(sample_records)])
-        else:
-            stats = repo.ingest_batch(parsed)
-            total.merge(stats)
-            logger.info(
-                "  %s..%s: +%d nya, %d dubbletter", win_from, win_to,
-                stats.inserted, stats.duplicates,
-            )
-
-    if session is not None:
-        session.close()
+            if dry_run:
+                if len(sample_records) < max(sample, 1):
+                    sample_records.extend(parsed[: max(sample, 1) - len(sample_records)])
+            else:
+                stats = sink.ingest_batch(parsed)
+                total.merge(stats)
+                logger.info(
+                    "  %s..%s: +%d nya, %d dubbletter", win_from, win_to,
+                    stats.inserted, stats.duplicates,
+                )
+    finally:
+        counts = sink.counts() if sink is not None else None
+        if sink is not None:
+            sink.close()
 
     logger.info(
         "KLART. Råa rader: %d | parsade (efter filter): %d", total_raw, total_parsed
@@ -101,11 +98,10 @@ def run_backfill(
         )
     else:
         logger.info(
-            "DB: +%d transaktioner, %d dubbletter hoppade. "
-            "Nya bolag: %d, nya insiders: %d, nya roller: %d",
-            total.inserted, total.duplicates, total.companies_created,
-            total.insiders_created, total.roles_created,
+            "SKREV: +%d transaktioner, %d dubbletter hoppade.",
+            total.inserted, total.duplicates,
         )
+        logger.info("Totalt i databasen nu: %s", counts)
     return total
 
 

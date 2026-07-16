@@ -7,6 +7,15 @@ database:
   # DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db  (schemat är identiskt).
   url: "sqlite:///data/insider_tracker.db"
 
+storage:
+  # Vilken persistens-backend ingest skriver till:
+  #   auto          -> supabase_rest om SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY finns,
+  #                    annars sqlalchemy (DATABASE_URL / SQLite).
+  #   sqlalchemy    -> tvinga SQLAlchemy (SQLite/Postgres via DATABASE_URL).
+  #   supabase_rest -> tvinga Supabase REST (PostgREST över HTTPS/443).
+  # supabase_rest används när Postgres-porten (5432) är blockerad av nätverkspolicyn.
+  backend: "auto"
+
 fi:
   # Verifierad stabil export-endpoint (GET, text/csv, UTF-16, ';'-separerad).
   base_url: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
