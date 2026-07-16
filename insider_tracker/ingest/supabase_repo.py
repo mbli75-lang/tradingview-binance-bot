@@ -298,5 +298,13 @@ class SupabaseRestRepository:
         self._upsert("signals", rows)  # ren insert
         return len(rows)
 
+    # ---------- steg 5: exit-tracker ----------
+    def upsert_signal_exits(self, rows: list[dict]) -> int:
+        if not rows:
+            return 0
+        self._upsert("signal_exits", rows, on_conflict="signal_id,rule",
+                     resolution="merge-duplicates")
+        return len(rows)
+
     def close(self) -> None:
         self.session.close()

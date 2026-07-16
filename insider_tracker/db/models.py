@@ -201,6 +201,36 @@ class Cluster(Base):
     exit_status: Mapped[str | None] = mapped_column(String(32))
 
 
+class SignalExit(Base):
+    """Steg 5: hypotetiskt utfall per exit-regel för varje köpflagg.
+
+    Tre parallella regler loggas och jämförs: insider_sell | hold_3m | trailing_15.
+    """
+
+    __tablename__ = "signal_exits"
+    __table_args__ = (
+        UniqueConstraint("signal_id", "rule", name="uq_signal_exit"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    signal_id: Mapped[int] = mapped_column(ForeignKey("signals.id"), index=True)
+    isin: Mapped[str | None] = mapped_column(String(12), index=True)
+    insider_id: Mapped[int | None] = mapped_column(Integer)
+    signal_date: Mapped[date | None] = mapped_column(Date)
+    rule: Mapped[str] = mapped_column(String(24))
+    entry_date: Mapped[date | None] = mapped_column(Date)
+    entry_price: Mapped[float | None] = mapped_column(Float)
+    exit_date: Mapped[date | None] = mapped_column(Date)
+    exit_price: Mapped[float | None] = mapped_column(Float)
+    gross_return: Mapped[float | None] = mapped_column(Float)
+    net_return: Mapped[float | None] = mapped_column(Float)
+    slippage: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str | None] = mapped_column(String(16))  # closed | open | no_price
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Signal(Base):
     """Modul 5: spårning av flaggade köp (skapas i steg 4/5, definieras redan nu)."""
 

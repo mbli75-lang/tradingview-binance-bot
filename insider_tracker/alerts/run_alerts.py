@@ -39,7 +39,8 @@ def _percentile(values: list[float], q: float) -> float | None:
     return vals[idx]
 
 
-def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None) -> dict:
+def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
+               record_only: bool = False) -> dict:
     repo = _get_repo(cfg)
     a = cfg["alerts"]
     lookback = lookback if lookback is not None else a["lookback_days"]
@@ -164,6 +165,10 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None) 
         for m in messages:
             print("\n" + "-" * 48 + "\n" + m)
         print(f"\n[dry-run] {sum(stats.values())} alerts skulle skickas. Inget skickades/sparades.")
+    elif record_only:
+        # Seeda signals utan att skicka Telegram (för exit-backtest).
+        repo.insert_signals(new_signals)
+        logger.info("record-only: sparade %d signals (inget skickat)", len(new_signals))
     else:
         sent = 0
         for m in messages:
@@ -182,10 +187,13 @@ def main() -> None:
     setup_logging()
     p = argparse.ArgumentParser(description="Realtidsflaggning (Telegram)")
     p.add_argument("--dry-run", action="store_true", help="Visa alerts, skicka/spara inget")
+    p.add_argument("--record-only", action="store_true",
+                   help="Spara signals utan att skicka Telegram (seeda exit-backtest)")
     p.add_argument("--lookback", type=int, help="Antal dagar bakåt")
     args = p.parse_args()
     try:
-        run_alerts(load_config(), dry_run=args.dry_run, lookback=args.lookback)
+        run_alerts(load_config(), dry_run=args.dry_run, lookback=args.lookback,
+                   record_only=args.record_only)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Alert-körning kraschade")
         send_error("Alert-körning kraschade", exc)

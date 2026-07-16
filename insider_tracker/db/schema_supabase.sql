@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS insider_roles (
 	FOREIGN KEY(insider_id) REFERENCES insiders (id), 
 	FOREIGN KEY(company_isin) REFERENCES companies (isin)
 );
-CREATE INDEX IF NOT EXISTS ix_insider_roles_insider_id ON insider_roles (insider_id);
 CREATE INDEX IF NOT EXISTS ix_insider_roles_company_isin ON insider_roles (company_isin);
+CREATE INDEX IF NOT EXISTS ix_insider_roles_insider_id ON insider_roles (insider_id);
 
 CREATE TABLE IF NOT EXISTS transactions (
 	id SERIAL NOT NULL, 
@@ -61,11 +61,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 	FOREIGN KEY(insider_id) REFERENCES insiders (id), 
 	FOREIGN KEY(company_isin) REFERENCES companies (isin)
 );
+CREATE INDEX IF NOT EXISTS ix_transactions_insider_id ON transactions (insider_id);
 CREATE INDEX IF NOT EXISTS ix_transactions_dedupe_hash ON transactions (dedupe_hash);
+CREATE INDEX IF NOT EXISTS ix_transactions_publish_date ON transactions (publish_date);
 CREATE INDEX IF NOT EXISTS ix_transactions_company_isin ON transactions (company_isin);
 CREATE INDEX IF NOT EXISTS ix_transactions_trade_date ON transactions (trade_date);
-CREATE INDEX IF NOT EXISTS ix_transactions_insider_id ON transactions (insider_id);
-CREATE INDEX IF NOT EXISTS ix_transactions_publish_date ON transactions (publish_date);
 
 CREATE TABLE IF NOT EXISTS prices (
 	id SERIAL NOT NULL, 
@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS prices (
 	PRIMARY KEY (id), 
 	CONSTRAINT uq_price_isin_date UNIQUE (isin, date)
 );
-CREATE INDEX IF NOT EXISTS ix_prices_date ON prices (date);
 CREATE INDEX IF NOT EXISTS ix_prices_isin ON prices (isin);
+CREATE INDEX IF NOT EXISTS ix_prices_date ON prices (date);
 
 CREATE TABLE IF NOT EXISTS trade_returns (
 	transaction_id INTEGER NOT NULL, 
@@ -109,8 +109,8 @@ CREATE TABLE IF NOT EXISTS trade_returns (
 	PRIMARY KEY (transaction_id), 
 	FOREIGN KEY(transaction_id) REFERENCES transactions (id)
 );
-CREATE INDEX IF NOT EXISTS ix_trade_returns_company_isin ON trade_returns (company_isin);
 CREATE INDEX IF NOT EXISTS ix_trade_returns_insider_id ON trade_returns (insider_id);
+CREATE INDEX IF NOT EXISTS ix_trade_returns_company_isin ON trade_returns (company_isin);
 
 CREATE TABLE IF NOT EXISTS clusters (
 	id SERIAL NOT NULL, 
@@ -156,8 +156,32 @@ CREATE TABLE IF NOT EXISTS signals (
 	insider_id INTEGER, 
 	entry_price FLOAT, 
 	status VARCHAR(32), 
+	signal_type VARCHAR(32), 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(insider_id) REFERENCES insiders (id)
 );
-CREATE INDEX IF NOT EXISTS ix_signals_isin ON signals (isin);
 CREATE INDEX IF NOT EXISTS ix_signals_signal_date ON signals (signal_date);
+CREATE INDEX IF NOT EXISTS ix_signals_isin ON signals (isin);
+
+CREATE TABLE IF NOT EXISTS signal_exits (
+	id SERIAL NOT NULL, 
+	signal_id INTEGER NOT NULL, 
+	isin VARCHAR(12), 
+	insider_id INTEGER, 
+	signal_date DATE, 
+	rule VARCHAR(24) NOT NULL, 
+	entry_date DATE, 
+	entry_price FLOAT, 
+	exit_date DATE, 
+	exit_price FLOAT, 
+	gross_return FLOAT, 
+	net_return FLOAT, 
+	slippage FLOAT, 
+	status VARCHAR(16), 
+	updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_signal_exit UNIQUE (signal_id, rule), 
+	FOREIGN KEY(signal_id) REFERENCES signals (id)
+);
+CREATE INDEX IF NOT EXISTS ix_signal_exits_signal_id ON signal_exits (signal_id);
+CREATE INDEX IF NOT EXISTS ix_signal_exits_isin ON signal_exits (isin);

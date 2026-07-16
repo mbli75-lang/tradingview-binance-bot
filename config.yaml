@@ -118,6 +118,12 @@ backtest:
   # scoren). 5.0 = +500 %. Golv är naturligt -100 %.
   max_stock_return: 5.0
 
+# Exit-logik (steg 5). Parallella regler som loggas och jämförs.
+exits:
+  hold_trading_days: 63       # (b) fast 3-månaders hold
+  trailing_stop_pct: 0.15     # (c) trailing stop 15 %
+  apply_slippage: true        # dra av round-trip-slippage (samma som backtest)
+
 telegram:
   enabled: true
   # Token/chat-id läses från miljövariablerna TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.
