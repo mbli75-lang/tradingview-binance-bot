@@ -4,9 +4,9 @@ System som (1) hämtar insynstransaktioner från Finansinspektionens insynsregis
 (2) backtestar historisk avkastning per insynsperson och (3) flaggar nya köp från
 högpresterande insiders via Telegram.
 
-**Detta är steg 1 av byggordningen:** ingest, databas och historisk backfill.
-Steg 2–5 (kursdata, backtest/scoring, Telegram-alerts, exit-tracker) är förberedda
-i schema/config men inte implementerade än.
+**Alla fem moduler är implementerade:** (1) ingest + databas + backfill, (2) kursdata
+(Börsdata + EODHD), (3) backtest + scoring + kluster, (4) realtidsflaggning (Telegram),
+(5) exit-tracker + månadsrapport. Se respektive avsnitt nedan.
 
 ## Verifierat om FI:s dataformat
 
@@ -106,6 +106,27 @@ Migration: `insider_tracker/db/migration_step4.sql`. Telegram via
   python -m insider_tracker.prices.daily_prices && \
   python -m insider_tracker.backtest.run && \
   python -m insider_tracker.alerts.run_alerts >> logs/cron.log 2>&1
+```
+
+## Steg 5: Exit-tracker + månadsrapport
+
+Spårar flaggade köp (`signals`) och jämför tre parallella exit-regler i `signal_exits`:
+(a) sälj när insidern säljer, (b) fast 3-mån hold (63 handelsdagar), (c) trailing
+stop 15 %. Öppna positioner mark-to-marketas mot sista kurs. Månadsrapport via
+Telegram jämför hypotetisk netto-avkastning per regel.
+
+```bash
+python -m insider_tracker.exits.run --track            # uppdatera signal_exits
+python -m insider_tracker.exits.run --report --dry-run # förhandsvisa rapporten
+python -m insider_tracker.exits.run --report           # skicka månadsrapport
+# Seeda historiska köpflaggor för exit-backtest (ingen Telegram):
+python -m insider_tracker.alerts.run_alerts --record-only --lookback 550
+```
+Migration: `insider_tracker/db/migration_step5.sql`.
+
+### Månadsrapport (cron, t.ex. 1:a varje månad)
+```
+0 8 1 * *  cd /path/to/repo && python -m insider_tracker.exits.run >> logs/cron.log 2>&1
 ```
 
 ## Databas

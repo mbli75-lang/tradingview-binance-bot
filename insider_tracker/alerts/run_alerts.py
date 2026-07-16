@@ -98,16 +98,17 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
         if key in seen:
             continue
         comp = companies.get(isin, {})
-        messages.append(build_buy_alert(cfg, {
-            "company": comp.get("name") or isin, "issuer": comp.get("name"),
-            "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
-            "insider": insiders.get(t["insider_id"], "?"),
-            "role": roles.get((t["insider_id"], isin)),
-            "amount_sek": t.get("amount_sek"), "is_related_party": t.get("is_related_party"),
-            "n_trades": sc["n_trades"], "avg_return_3m": sc["avg_return_3m"],
-            "score": sc["score"], "turnover": turnover(isin),
-            "publish_date": t["publish_date"][:10],
-        }))
+        if not record_only:  # record-only behöver inte bygga meddelandet (dyr turnover)
+            messages.append(build_buy_alert(cfg, {
+                "company": comp.get("name") or isin, "issuer": comp.get("name"),
+                "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
+                "insider": insiders.get(t["insider_id"], "?"),
+                "role": roles.get((t["insider_id"], isin)),
+                "amount_sek": t.get("amount_sek"), "is_related_party": t.get("is_related_party"),
+                "n_trades": sc["n_trades"], "avg_return_3m": sc["avg_return_3m"],
+                "score": sc["score"], "turnover": turnover(isin),
+                "publish_date": t["publish_date"][:10],
+            }))
         new_signals.append({"signal_date": t["publish_date"][:10], "isin": isin,
                             "insider_id": t["insider_id"], "signal_type": "insider_buy",
                             "status": "open"})
@@ -121,13 +122,14 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
         if key in seen:
             continue
         comp = companies.get(isin, {})
-        messages.append(build_cluster_alert(cfg, {
-            "company": comp.get("name") or isin, "issuer": comp.get("name"),
-            "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
-            "n_insiders": cl["n_insiders"], "n_buys": cl["n_buys"],
-            "window_start": cl["window_start"][:10], "trigger_date": cl["trigger_date"][:10],
-            "turnover": turnover(isin),
-        }))
+        if not record_only:
+            messages.append(build_cluster_alert(cfg, {
+                "company": comp.get("name") or isin, "issuer": comp.get("name"),
+                "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
+                "n_insiders": cl["n_insiders"], "n_buys": cl["n_buys"],
+                "window_start": cl["window_start"][:10], "trigger_date": cl["trigger_date"][:10],
+                "turnover": turnover(isin),
+            }))
         new_signals.append({"signal_date": cl["trigger_date"][:10], "isin": isin,
                             "insider_id": None, "signal_type": "cluster", "status": "open"})
         seen.add(key)
@@ -144,13 +146,14 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
         if key in seen:
             continue
         comp = companies.get(isin, {})
-        messages.append(build_sell_alert(cfg, {
-            "company": comp.get("name") or isin, "issuer": comp.get("name"),
-            "marketplace": comp.get("marketplace"),
-            "insider": insiders.get(t["insider_id"], "?"),
-            "role": roles.get((t["insider_id"], isin)),
-            "amount_sek": t.get("amount_sek"), "publish_date": t["publish_date"][:10],
-        }))
+        if not record_only:
+            messages.append(build_sell_alert(cfg, {
+                "company": comp.get("name") or isin, "issuer": comp.get("name"),
+                "marketplace": comp.get("marketplace"),
+                "insider": insiders.get(t["insider_id"], "?"),
+                "role": roles.get((t["insider_id"], isin)),
+                "amount_sek": t.get("amount_sek"), "publish_date": t["publish_date"][:10],
+            }))
         new_signals.append({"signal_date": t["publish_date"][:10], "isin": isin,
                             "insider_id": t["insider_id"], "signal_type": "insider_sell",
                             "status": "info"})
