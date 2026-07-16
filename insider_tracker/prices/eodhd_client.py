@@ -3,7 +3,9 @@
 Inaktiv om EODHD_API_KEY saknas – is_enabled() returnerar då False och
 pipelinen hoppar över fallbacken utan att krascha.
 
-EODHD-flöde: slå upp ISIN -> symbol via /search, hämta sedan /eod/{symbol}.
+ISIN->symbol sker via exchange-symbol-list (fältet 'Isin'), eftersom search-API:et
+inte ingår i alla planer. Avnoterade symboler inkluderas (delisted=1) – kritiskt
+mot survivorship bias. Kurser hämtas sedan via /eod/{Code}.{Exchange}.
 """
 from __future__ import annotations
 
@@ -23,9 +25,12 @@ class EODHDClient:
         eod = cfg["prices"]["eodhd"]
         self.base = eod["base_url"].rstrip("/")
         self.timeout = eod["request_timeout"]
+        self.exchanges = eod.get("exchanges", ["ST"])
+        self.include_delisted = eod.get("include_delisted", True)
         self._token = os.getenv("EODHD_API_KEY") or os.getenv("EODHD_API_TOKEN")
         self.session = session or requests.Session()
         self.session.headers["User-Agent"] = "InsiderTracker/1.0 (+https://github.com)"
+        self._isin_map: dict[str, str] | None = None  # ISIN -> "Code.Exchange"
 
     def is_enabled(self) -> bool:
         return bool(self._token)
@@ -48,19 +53,27 @@ class EODHDClient:
                     delay *= 2
         return None
 
+    def _ensure_isin_map(self) -> dict[str, str]:
+        if self._isin_map is not None:
+            return self._isin_map
+        m: dict[str, str] = {}
+        for exch in self.exchanges:
+            variants = [{}]
+            if self.include_delisted:
+                variants.append({"delisted": "1"})
+            for extra in variants:
+                data = self._get(f"exchange-symbol-list/{exch}", extra) or []
+                for row in data:
+                    isin = row.get("Isin")
+                    code = row.get("Code")
+                    if isin and code and isin not in m:
+                        m[isin] = f"{code}.{exch}"
+        self._isin_map = m
+        logger.info("EODHD: %d ISIN->symbol-mappningar laddade", len(m))
+        return m
+
     def resolve_symbol(self, isin: str) -> str | None:
-        data = self._get(f"search/{isin}", {})
-        if data:
-            # Föredra svensk börs (.ST) om flera träffar.
-            hits = sorted(
-                data,
-                key=lambda h: 0 if str(h.get("Exchange", "")).upper() in ("ST", "STO") else 1,
-            )
-            if hits:
-                code, exch = hits[0].get("Code"), hits[0].get("Exchange")
-                if code and exch:
-                    return f"{code}.{exch}"
-        return None
+        return self._ensure_isin_map().get(isin)
 
     def get_stock_prices(self, isin: str, from_date: str, to_date: str) -> list[dict]:
         """Returnerar rader normaliserade till {d,o,h,l,c,v}."""
@@ -72,6 +85,8 @@ class EODHDClient:
             return []
         out = []
         for r in data:
+            if not r.get("date"):
+                continue
             out.append({
                 "d": r.get("date"),
                 "o": r.get("open"),

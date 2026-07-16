@@ -38,7 +38,9 @@ def _to_price_rows(isin: str, raw: list[dict], source: str) -> list[dict]:
     return rows
 
 
-def run_price_backfill(from_date: date, to_date: date) -> dict:
+def run_price_backfill(
+    from_date: date, to_date: date, eodhd_only: bool = False
+) -> dict:
     cfg = load_config()
     bd = BorsdataClient(cfg)
     eod = EODHDClient(cfg)
@@ -67,6 +69,8 @@ def run_price_backfill(from_date: date, to_date: date) -> dict:
 
         for idx, isin in enumerate(isins, 1):
             ins_id = isin_to_insid.get(isin)
+            if eodhd_only and ins_id is not None:
+                continue  # Börsdata-täckta hoppas över i fallback-läge
             if ins_id is not None:
                 raw = bd.get_stock_prices(ins_id, frm, to)
                 if raw:
@@ -109,6 +113,8 @@ def main() -> None:
     parser.add_argument("--from", dest="from_date")
     parser.add_argument("--to", dest="to_date")
     parser.add_argument("--days", type=int, help="Senaste N dagar (override from/to)")
+    parser.add_argument("--eodhd-only", action="store_true",
+                        help="Endast EODHD-fallback (hoppa över Börsdata-täckta bolag)")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -122,7 +128,7 @@ def main() -> None:
         from_date = to_date - timedelta(days=int(round(years * 365.25)))
 
     try:
-        run_price_backfill(from_date, to_date)
+        run_price_backfill(from_date, to_date, eodhd_only=args.eodhd_only)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Pris-backfill kraschade")
         send_error("Pris-backfill kraschade", exc)

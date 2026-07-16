@@ -83,6 +83,9 @@ prices:
     base_url: "https://eodhd.com/api"
     # api_token läses från miljövariabeln EODHD_API_KEY (fallback, inaktiv om saknas).
     request_timeout: 60
+    # ISIN->symbol via exchange-symbol-list (search-API saknas i planen).
+    exchanges: ["ST"]          # Nasdaq Stockholm (aktiva + avnoterade)
+    include_delisted: true     # kritiskt mot survivorship bias
   # Börsdata-marketId -> kanoniskt segmentnamn (löser Nasdaq Small Cap som FI ej ger).
   segment_by_market_id:
     1: "Large Cap"
