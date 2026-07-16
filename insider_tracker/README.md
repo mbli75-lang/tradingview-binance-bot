@@ -30,6 +30,28 @@ Behåller endast: `Instrumenttyp = Aktie`, `Karaktär ∈ {Förvärv, Avyttring}
 > Stockholm; Small Cap-avgränsningen görs via Börsdatas ISIN→segment-mappning i steg 2
 > (så vi slipper backfilla om).
 
+## Steg 2: Kursdata-integration
+
+Daglig EOD-kursdata till `prices` samt segment-berikning av `companies`.
+
+Verifierat mot riktiga anrop:
+- **Börsdata** (primär): `/markets` (markets = segment: Small Cap=3 …), `/instruments`
+  (isin→insId/marketId/sectorId), `/instruments/{insId}/stockprices?from=&to=`
+  ({d,o,h,l,c,v}). Full 3-årshistorik. Rate limit ~100/10 s (klienten strular under).
+- **EODHD** (fallback): ISIN→symbol via `exchange-symbol-list` (search-API saknas i
+  planen), inkl. `delisted=1` mot survivorship bias. **OBS: planen kapar historik till ~1 år.**
+- **Segment**: FI särskiljer inte Nasdaq-segment; Börsdatas `marketId` ger Small Cap
+  m.m. och skrivs till `companies.segment` – det som gör Small Cap-filtret möjligt.
+
+```bash
+python -m insider_tracker.prices.sync_instruments        # berika companies (segment/sektor/insId)
+python -m insider_tracker.prices.backfill_prices         # 3 år EOD (Börsdata + EODHD)
+python -m insider_tracker.prices.backfill_prices --eodhd-only   # bara fallback
+python -m insider_tracker.prices.daily_prices            # dagligt delta (cron)
+```
+Kräver `BORSDATA_API_KEY`; `EODHD_API_KEY` valfri (fallback). Migration för befintlig
+DB: `insider_tracker/db/migration_step2.sql`.
+
 ## Databas
 
 DB-agnostiskt SQLAlchemy-schema. Lokalt SQLite som standard; byt till Supabase/Postgres
