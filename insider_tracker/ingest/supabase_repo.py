@@ -108,8 +108,9 @@ class SupabaseRestRepository:
         return result
 
     def count(self, table: str) -> int:
-        resp = self._request("GET", table, params={"select": "id"},
-                             prefer="count=exact")
+        # HEAD + count=exact ger antalet i Content-Range utan att returnera rader
+        # (fungerar oavsett vilka kolumner tabellen har).
+        resp = self._request("HEAD", table, prefer="count=exact")
         # Content-Range: 0-24/25  eller  */25
         cr = resp.headers.get("content-range", "*/0")
         return int(cr.split("/")[-1])
