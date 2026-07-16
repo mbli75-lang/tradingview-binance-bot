@@ -214,3 +214,5 @@ class Signal(Base):
     )
     entry_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Steg 4: typ av flagg (insider_buy | cluster | insider_sell).
+    signal_type: Mapped[str | None] = mapped_column(String(32), nullable=True)

@@ -291,5 +291,12 @@ class SupabaseRestRepository:
         self._upsert("insider_scores", rows)  # ren insert efter delete-all
         return len(rows)
 
+    # ---------- steg 4: signals ----------
+    def insert_signals(self, rows: list[dict]) -> int:
+        if not rows:
+            return 0
+        self._upsert("signals", rows)  # ren insert
+        return len(rows)
+
     def close(self) -> None:
         self.session.close()

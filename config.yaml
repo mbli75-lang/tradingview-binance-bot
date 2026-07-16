@@ -72,8 +72,12 @@ scoring:
 
 # Realtidsflaggning (steg 4).
 alerts:
+  enabled: true
   score_percentile_threshold: 0.80   # topp 20 % av scorade insiders
   liquidity_warning_sek_per_day: 500000
+  lookback_days: 5                    # utvärdera köp/sälj publicerade senaste N dagarna
+  liquidity_window_days: 30           # snitt daglig omsättning över N dagar
+  fi_search_base: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
 
 # Kursdata (steg 2). Börsdata primär, EODHD fallback.
 prices:
