@@ -56,12 +56,17 @@ slippage:
 # Scoring-parametrar (steg 3) – definierade här redan nu så de är konfigurerbara.
 scoring:
   min_trades: 3
-  return_weights: { m1: 0.2, m3: 0.5, m6: 0.3 }
-  boost_roles: ["Verkställande direktör", "Ekonomichef", "CFO", "VD"]
-  boost_amount_sek: 200000
-  boost_holding_increase_pct: 0.20
-  penalty_related_party: 0.5
-  symbolic_amount_sek: 50000
+  return_weights: { m1: 0.2, m3: 0.5, m6: 0.3 }   # 3 mån viktas högst
+  boost_roles: ["Verkställande direktör", "VD", "Ekonomichef", "Finanschef", "CFO"]
+  boost_amount_sek: 200000        # köpbelopp över detta viktas upp
+  boost_holding_increase_pct: 0.20  # (kräver innehavsdata – ej aktivt än)
+  symbolic_amount_sek: 50000      # symboliska köp under detta viktas ner
+  # Viktmultiplikatorer:
+  role_boost: 1.5                 # VD/CFO
+  amount_boost: 1.3               # belopp > boost_amount_sek
+  symbolic_penalty: 0.5           # belopp < symbolic_amount_sek
+  penalty_related_party: 0.5      # närståendetransaktion
+  shrinkage_k: 5                  # antal-trades-justering: score *= n/(n+k)
   cluster_min_insiders: 3
   cluster_window_days: 14
 
@@ -101,6 +106,9 @@ backtest:
   horizons_trading_days: [21, 63, 126]
   benchmark: "OMXSPI"
   benchmark_isin: "SE0000744195"   # OMX Stockholm PI (Börsdata insId 638)
+  # Kända konkurser -> avkastning sätts till -100 % (survivorship). Avnoterade utan
+  # post här antas uppköpta och värderas till sista kurs.
+  bankruptcy_isins: []
 
 telegram:
   enabled: true

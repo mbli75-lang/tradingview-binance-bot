@@ -145,6 +145,62 @@ class InsiderScore(Base):
     )
 
 
+class TradeReturn(Base):
+    """Steg 3: avkastning per historiskt köp, +21/+63/+126 handelsdagar efter
+    publiceringsdatum, benchmark-justerat (OMXSPI) och slippage-justerat."""
+
+    __tablename__ = "trade_returns"
+
+    transaction_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id"), primary_key=True
+    )
+    insider_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    company_isin: Mapped[str | None] = mapped_column(String(12), index=True)
+    publish_date: Mapped[date | None] = mapped_column(Date)
+    entry_date: Mapped[date | None] = mapped_column(Date)
+    entry_price: Mapped[float | None] = mapped_column(Float)
+    marketplace: Mapped[str | None] = mapped_column(String(64))
+    segment: Mapped[str | None] = mapped_column(String(64))
+    slippage: Mapped[float | None] = mapped_column(Float)
+    amount_sek: Mapped[float | None] = mapped_column(Numeric(20, 2))
+    is_related_party: Mapped[bool | None] = mapped_column(Boolean)
+    # Brutto aktieavkastning, benchmark, samt netto överavkastning (efter slippage).
+    ret_1m: Mapped[float | None] = mapped_column(Float)
+    bench_1m: Mapped[float | None] = mapped_column(Float)
+    exc_1m: Mapped[float | None] = mapped_column(Float)
+    ret_3m: Mapped[float | None] = mapped_column(Float)
+    bench_3m: Mapped[float | None] = mapped_column(Float)
+    exc_3m: Mapped[float | None] = mapped_column(Float)
+    ret_6m: Mapped[float | None] = mapped_column(Float)
+    bench_6m: Mapped[float | None] = mapped_column(Float)
+    exc_6m: Mapped[float | None] = mapped_column(Float)
+    exit_status: Mapped[str | None] = mapped_column(String(32))  # ok|delisted|bankrupt|pending
+    computed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Cluster(Base):
+    """Steg 3: klustersignal – ≥N unika insiders köper i samma bolag inom rullande
+    fönster. Egen avkastningsstatistik."""
+
+    __tablename__ = "clusters"
+    __table_args__ = (
+        UniqueConstraint("company_isin", "trigger_date", name="uq_cluster"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_isin: Mapped[str] = mapped_column(String(12), index=True)
+    trigger_date: Mapped[date] = mapped_column(Date, index=True)
+    window_start: Mapped[date | None] = mapped_column(Date)
+    n_insiders: Mapped[int | None] = mapped_column(Integer)
+    n_buys: Mapped[int | None] = mapped_column(Integer)
+    entry_date: Mapped[date | None] = mapped_column(Date)
+    entry_price: Mapped[float | None] = mapped_column(Float)
+    exc_1m: Mapped[float | None] = mapped_column(Float)
+    exc_3m: Mapped[float | None] = mapped_column(Float)
+    exc_6m: Mapped[float | None] = mapped_column(Float)
+    exit_status: Mapped[str | None] = mapped_column(String(32))
+
+
 class Signal(Base):
     """Modul 5: spårning av flaggade köp (skapas i steg 4/5, definieras redan nu)."""
 

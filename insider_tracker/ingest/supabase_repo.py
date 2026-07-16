@@ -89,16 +89,19 @@ class SupabaseRestRepository:
                     delay *= 2
         raise RuntimeError(f"Supabase-anrop gav upp: {method} {path}") from last_exc
 
-    def _upsert(self, table: str, rows: list[dict], on_conflict: str,
+    def _upsert(self, table: str, rows: list[dict], on_conflict: str | None = None,
                 resolution: str = "merge-duplicates", return_repr: bool = False,
                 select: str | None = None) -> list[dict]:
         if not rows:
             return []
-        params = {"on_conflict": on_conflict}
+        params = {}
+        if on_conflict:
+            params["on_conflict"] = on_conflict
         if select:
             params["select"] = select
         ret = "return=representation" if return_repr else "return=minimal"
-        prefer = f"resolution={resolution},{ret}"
+        # Ren insert (utan on_conflict) tar ingen resolution.
+        prefer = f"resolution={resolution},{ret}" if on_conflict else ret
         result: list[dict] = []
         for i in range(0, len(rows), _CHUNK):
             chunk = rows[i : i + _CHUNK]
@@ -238,6 +241,48 @@ class SupabaseRestRepository:
             return 0
         self._upsert("prices", rows, on_conflict="isin,date",
                      resolution="merge-duplicates")
+        return len(rows)
+
+    # ---------- steg 3: bulk-laddning + backtest-lagring ----------
+    def fetch_all(self, table: str, select: str, order: str | None = None,
+                  page: int = 1000, **filters) -> list[dict]:
+        """Paginerad GET av alla rader (för in-memory-beräkning)."""
+        out: list[dict] = []
+        offset = 0
+        while True:
+            params = {"select": select, "limit": str(page), "offset": str(offset)}
+            if order:
+                params["order"] = order
+            params.update(filters)
+            batch = self._request("GET", table, params=params).json()
+            out.extend(batch)
+            if len(batch) < page:
+                break
+            offset += len(batch)
+        return out
+
+    def upsert_trade_returns(self, rows: list[dict]) -> int:
+        if not rows:
+            return 0
+        self._upsert("trade_returns", rows, on_conflict="transaction_id",
+                     resolution="merge-duplicates")
+        return len(rows)
+
+    def upsert_clusters(self, rows: list[dict]) -> int:
+        if not rows:
+            return 0
+        self._upsert("clusters", rows, on_conflict="company_isin,trigger_date",
+                     resolution="merge-duplicates")
+        return len(rows)
+
+    def replace_scores(self, rows: list[dict]) -> int:
+        """insider_scores är en härledd aggregat – delete-all + insert (idempotent).
+
+        (company_isin kan vara NULL för per-insider-score; UNIQUE dedupar då inte,
+        så upsert duger inte.)"""
+        # PostgREST kräver ett filter för DELETE; id=gte.0 matchar allt.
+        self._request("DELETE", "insider_scores", params={"id": "gte.0"})
+        self._upsert("insider_scores", rows)  # ren insert efter delete-all
         return len(rows)
 
     def close(self) -> None:
