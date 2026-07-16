@@ -52,6 +52,33 @@ python -m insider_tracker.prices.daily_prices            # dagligt delta (cron)
 Kräver `BORSDATA_API_KEY`; `EODHD_API_KEY` valfri (fallback). Migration för befintlig
 DB: `insider_tracker/db/migration_step2.sql`.
 
+## Steg 3: Backtest + scoring
+
+Beräknar historisk avkastning per köp, scorar insiders och detekterar kluster.
+
+- **Avkastning** (`trade_returns`): +21/+63/+126 handelsdagar efter **publiceringsdatum**
+  (agerbart datum), på OMXSPI:s handelsdagskalender. Överavkastning mot OMXSPI,
+  minus round-trip-slippage (Spotlight 4 % / First North 2,5 % / Small Cap 1,5 %).
+  Survivorship: avnoterat → sista kurs (uppköp); känd konkurs (`bankruptcy_isins`)
+  → −100 %. Winsorisering (`max_stock_return`) dämpar penny-stock-extremer.
+- **Scoring** (`insider_scores`): viktat snitt av netto-överavkastning (3 mån högst),
+  VD/CFO- och beloppsvikt upp, närstående/symboliska ner, shrinkage `n/(n+k)`,
+  min 3 köp.
+- **Kluster** (`clusters`): ≥3 unika insiders i samma bolag inom rullande 14 dagar,
+  backtestad separat med egen avkastningsstatistik.
+
+```bash
+python -m insider_tracker.backtest.run              # allt (returns + scores + kluster)
+python -m insider_tracker.backtest.run --returns    # bara avkastning
+python -m insider_tracker.backtest.run --scores     # bara scoring
+python -m insider_tracker.backtest.run --clusters   # bara kluster
+```
+Migration för befintlig DB: `insider_tracker/db/migration_step3.sql`.
+
+> Observation från datan: att naivt följa *alla* insiderköp underpresterar OMXSPI
+> efter slippage (snitt −2 till −3 % överavkastning). Edgen ligger i att *välja*
+> högt scorade insiders/kluster – det är precis vad scoring-/klustermodulerna gör.
+
 ## Databas
 
 DB-agnostiskt SQLAlchemy-schema. Lokalt SQLite som standard; byt till Supabase/Postgres
