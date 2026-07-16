@@ -70,10 +70,34 @@ alerts:
   score_percentile_threshold: 0.80   # topp 20 % av scorade insiders
   liquidity_warning_sek_per_day: 500000
 
+# Kursdata (steg 2). Börsdata primär, EODHD fallback.
+prices:
+  borsdata:
+    base_url: "https://apiservice.borsdata.se/v1"
+    # authKey läses från miljövariabeln BORSDATA_API_KEY.
+    country_id: 1                # Sverige
+    rate_limit_per_10s: 100      # fri/pro-gräns; klienten strular under detta
+    request_timeout: 60
+    history_years: 3
+  eodhd:
+    base_url: "https://eodhd.com/api"
+    # api_token läses från miljövariabeln EODHD_API_KEY (fallback, inaktiv om saknas).
+    request_timeout: 60
+  # Börsdata-marketId -> kanoniskt segmentnamn (löser Nasdaq Small Cap som FI ej ger).
+  segment_by_market_id:
+    1: "Large Cap"
+    2: "Mid Cap"
+    3: "Small Cap"
+    4: "First North"
+    5: "Spotlight"
+    6: "NGM"
+    7: "Index"
+
 # Backtest-fönster i handelsdagar efter publiceringsdatum.
 backtest:
   horizons_trading_days: [21, 63, 126]
   benchmark: "OMXSPI"
+  benchmark_isin: "SE0000744195"   # OMX Stockholm PI (Börsdata insId 638)
 
 telegram:
   enabled: true

@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from insider_tracker.db.models import Company, Insider, InsiderRole, Transaction
+from insider_tracker.db.models import (
+    Company, Insider, InsiderRole, Price, Transaction,
+)
 from insider_tracker.ingest.parser import ParsedTransaction
 
 logger = logging.getLogger(__name__)
@@ -173,3 +175,41 @@ class Repository:
 
         self.session.commit()
         return stats
+
+    # ---------- steg 2: berikning + kurser ----------
+    def tracked_companies(self) -> list[dict]:
+        rows = self.session.execute(
+            select(Company.isin, Company.borsdata_ins_id, Company.segment)
+        ).all()
+        return [
+            {"isin": r[0], "borsdata_ins_id": r[1], "segment": r[2]} for r in rows
+        ]
+
+    def update_companies_meta(self, rows: list[dict]) -> int:
+        for row in rows:
+            company = self.session.get(Company, row["isin"])
+            if company is None:
+                continue
+            for key in ("segment", "sector", "borsdata_ins_id"):
+                if row.get(key) is not None:
+                    setattr(company, key, row[key])
+        self.session.commit()
+        return len(rows)
+
+    def upsert_prices(self, rows: list[dict]) -> int:
+        n = 0
+        for row in rows:
+            existing = self.session.scalar(
+                select(Price).where(
+                    Price.isin == row["isin"], Price.date == row["date"]
+                )
+            )
+            if existing is None:
+                self.session.add(Price(**row))
+            else:
+                for key in ("open", "high", "low", "close", "volume", "source"):
+                    if row.get(key) is not None:
+                        setattr(existing, key, row[key])
+            n += 1
+        self.session.commit()
+        return n

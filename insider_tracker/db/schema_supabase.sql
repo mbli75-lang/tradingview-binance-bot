@@ -1,6 +1,5 @@
--- Insider-Tracker schema för Supabase/Postgres
--- Kör EN gång i Supabase SQL Editor (Dashboard -> SQL Editor -> New query).
--- Idempotent: IF NOT EXISTS på tabeller och index.
+-- Insider-Tracker schema för Supabase/Postgres (full, fresh install)
+-- Idempotent: IF NOT EXISTS.
 
 CREATE TABLE IF NOT EXISTS companies (
 	isin VARCHAR(12) NOT NULL, 
@@ -8,6 +7,8 @@ CREATE TABLE IF NOT EXISTS companies (
 	lei VARCHAR(20), 
 	marketplace VARCHAR(64), 
 	sector VARCHAR(128), 
+	segment VARCHAR(64), 
+	borsdata_ins_id INTEGER, 
 	PRIMARY KEY (isin)
 );
 
@@ -61,11 +62,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 	FOREIGN KEY(insider_id) REFERENCES insiders (id), 
 	FOREIGN KEY(company_isin) REFERENCES companies (isin)
 );
+CREATE INDEX IF NOT EXISTS ix_transactions_company_isin ON transactions (company_isin);
 CREATE INDEX IF NOT EXISTS ix_transactions_trade_date ON transactions (trade_date);
 CREATE INDEX IF NOT EXISTS ix_transactions_insider_id ON transactions (insider_id);
 CREATE INDEX IF NOT EXISTS ix_transactions_dedupe_hash ON transactions (dedupe_hash);
 CREATE INDEX IF NOT EXISTS ix_transactions_publish_date ON transactions (publish_date);
-CREATE INDEX IF NOT EXISTS ix_transactions_company_isin ON transactions (company_isin);
 
 CREATE TABLE IF NOT EXISTS prices (
 	id SERIAL NOT NULL, 
@@ -76,6 +77,7 @@ CREATE TABLE IF NOT EXISTS prices (
 	low FLOAT, 
 	close FLOAT, 
 	volume FLOAT, 
+	source VARCHAR(16), 
 	PRIMARY KEY (id), 
 	CONSTRAINT uq_price_isin_date UNIQUE (isin, date)
 );
@@ -97,8 +99,8 @@ CREATE TABLE IF NOT EXISTS insider_scores (
 	FOREIGN KEY(insider_id) REFERENCES insiders (id), 
 	FOREIGN KEY(company_isin) REFERENCES companies (isin)
 );
-CREATE INDEX IF NOT EXISTS ix_insider_scores_company_isin ON insider_scores (company_isin);
 CREATE INDEX IF NOT EXISTS ix_insider_scores_insider_id ON insider_scores (insider_id);
+CREATE INDEX IF NOT EXISTS ix_insider_scores_company_isin ON insider_scores (company_isin);
 
 CREATE TABLE IF NOT EXISTS signals (
 	id SERIAL NOT NULL, 

@@ -26,6 +26,9 @@ class Sink(Protocol):
 
     def ingest_batch(self, records: list[ParsedTransaction]) -> IngestStats: ...
     def counts(self) -> dict[str, int]: ...
+    def tracked_companies(self) -> list[dict]: ...
+    def update_companies_meta(self, rows: list[dict]) -> int: ...
+    def upsert_prices(self, rows: list[dict]) -> int: ...
     def close(self) -> None: ...
 
 
@@ -46,16 +49,26 @@ class SqlAlchemySink:
     def counts(self) -> dict[str, int]:
         from sqlalchemy import func, select
         from insider_tracker.db.models import (
-            Company, Insider, InsiderRole, Transaction,
+            Company, Insider, InsiderRole, Price, Transaction,
         )
         models = {
             "companies": Company, "insiders": Insider,
             "insider_roles": InsiderRole, "transactions": Transaction,
+            "prices": Price,
         }
         return {
             name: self._session.scalar(select(func.count()).select_from(m))
             for name, m in models.items()
         }
+
+    def tracked_companies(self):
+        return self._repo.tracked_companies()
+
+    def update_companies_meta(self, rows):
+        return self._repo.update_companies_meta(rows)
+
+    def upsert_prices(self, rows):
+        return self._repo.upsert_prices(rows)
 
     def close(self):
         self._session.close()
@@ -74,7 +87,16 @@ class SupabaseRestSink:
         return self._repo.ingest_batch(records)
 
     def counts(self) -> dict[str, int]:
-        return {t: self._repo.count(t) for t in _TABLES}
+        return {t: self._repo.count(t) for t in _TABLES + ["prices"]}
+
+    def tracked_companies(self):
+        return self._repo.tracked_companies()
+
+    def update_companies_meta(self, rows):
+        return self._repo.update_companies_meta(rows)
+
+    def upsert_prices(self, rows):
+        return self._repo.upsert_prices(rows)
 
     def close(self):
         self._repo.close()

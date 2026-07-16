@@ -34,6 +34,9 @@ class Company(Base):
     lei: Mapped[str | None] = mapped_column(String(20), nullable=True)
     marketplace: Mapped[str | None] = mapped_column(String(64), nullable=True)
     sector: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Steg 2: berikning från Börsdata.
+    segment: Mapped[str | None] = mapped_column(String(64), nullable=True)  # Small Cap m.m.
+    borsdata_ins_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="company")
 
@@ -118,6 +121,7 @@ class Price(Base):
     low: Mapped[float | None] = mapped_column(Float, nullable=True)
     close: Mapped[float | None] = mapped_column(Float, nullable=True)
     volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # borsdata|eodhd
 
 
 class InsiderScore(Base):

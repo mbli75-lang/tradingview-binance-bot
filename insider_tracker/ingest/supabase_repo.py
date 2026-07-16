@@ -209,5 +209,36 @@ class SupabaseRestRepository:
         stats.duplicates += len(txn_rows) - len(inserted)
         return stats
 
+    # ---------- steg 2: berikning + kurser ----------
+    def tracked_companies(self) -> list[dict]:
+        """Alla bolag (isin + ev. borsdata_ins_id) för prishämtning."""
+        out: list[dict] = []
+        offset = 0
+        while True:
+            resp = self._request("GET", "companies", params={
+                "select": "isin,borsdata_ins_id,segment", "limit": "1000",
+                "offset": str(offset),
+            })
+            batch = resp.json()
+            out.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += len(batch)
+        return out
+
+    def update_companies_meta(self, rows: list[dict]) -> int:
+        """Uppdatera companies med segment/sector/borsdata_ins_id (merge på isin)."""
+        self._upsert("companies", rows, on_conflict="isin",
+                     resolution="merge-duplicates")
+        return len(rows)
+
+    def upsert_prices(self, rows: list[dict]) -> int:
+        """Upserta EOD-kurser (merge på isin,date)."""
+        if not rows:
+            return 0
+        self._upsert("prices", rows, on_conflict="isin,date",
+                     resolution="merge-duplicates")
+        return len(rows)
+
     def close(self) -> None:
         self.session.close()
