@@ -118,6 +118,14 @@ backtest:
   # scoren). 5.0 = +500 %. Golv är naturligt -100 %.
   max_stock_return: 5.0
 
+# Paper trading – framåt-validering (out-of-sample).
+paper:
+  exit_rule: "hold_3m"                  # regeln paper-positionen följer (hold_3m|trailing_15|insider_sell)
+  executable_min_turnover_sek: 500000   # under detta = ej exekverbar i storlek (separeras i utvärderingen)
+  # Spread finns inte i EOD-data. Realistiskt entry = nästa dags öppning.
+  # Valfritt pålägg (andel) om du vill lägga till ett spread-antagande – default 0 (mät, anta inte).
+  half_spread_pct: 0.0
+
 # Exit-logik (steg 5). Parallella regler som loggas och jämförs.
 exits:
   hold_trading_days: 63       # (b) fast 3-månaders hold

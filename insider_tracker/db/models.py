@@ -231,6 +231,49 @@ class SignalExit(Base):
     )
 
 
+class PaperTrade(Base):
+    """Framåt-validering (out-of-sample): en hypotetisk position per live-signal.
+
+    Två entry-priser loggas – teoretiskt (signaldagens stängning, som backtesten
+    antar) och realistiskt (nästa handelsdags öppning, det du faktiskt kunnat få).
+    Skillnaden = exekveringskostnaden backtesten inte kan mäta.
+    """
+
+    __tablename__ = "paper_trades"
+    __table_args__ = (
+        UniqueConstraint("signal_id", name="uq_paper_signal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    signal_id: Mapped[int] = mapped_column(ForeignKey("signals.id"), index=True)
+    signal_date: Mapped[date] = mapped_column(Date, index=True)
+    isin: Mapped[str | None] = mapped_column(String(12), index=True)
+    company: Mapped[str | None] = mapped_column(String(256))
+    marketplace: Mapped[str | None] = mapped_column(String(64))
+    segment: Mapped[str | None] = mapped_column(String(64))
+    insider_id: Mapped[int | None] = mapped_column(Integer)
+    role: Mapped[str | None] = mapped_column(String(256))
+    insider_score: Mapped[float | None] = mapped_column(Float)  # score vid signaltillfället
+    signal_type: Mapped[str | None] = mapped_column(String(32))  # insider_buy | cluster
+
+    entry_price_theoretical: Mapped[float | None] = mapped_column(Float)
+    entry_price_realistic: Mapped[float | None] = mapped_column(Float)  # nästa dags öppning
+    avg_daily_turnover_30d: Mapped[float | None] = mapped_column(Float)
+    executable: Mapped[bool | None] = mapped_column(Boolean)  # omsättning >= tröskel
+
+    exit_rule: Mapped[str | None] = mapped_column(String(24))
+    status: Mapped[str | None] = mapped_column(String(16))  # pending_entry | open | closed
+    exit_date: Mapped[date | None] = mapped_column(Date)
+    exit_price: Mapped[float | None] = mapped_column(Float)
+    return_theoretical: Mapped[float | None] = mapped_column(Float)
+    return_realistic: Mapped[float | None] = mapped_column(Float)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Signal(Base):
     """Modul 5: spårning av flaggade köp (skapas i steg 4/5, definieras redan nu)."""
 

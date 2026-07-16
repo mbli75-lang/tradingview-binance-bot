@@ -306,5 +306,13 @@ class SupabaseRestRepository:
                      resolution="merge-duplicates")
         return len(rows)
 
+    # ---------- paper trading ----------
+    def upsert_paper_trades(self, rows: list[dict]) -> int:
+        if not rows:
+            return 0
+        self._upsert("paper_trades", rows, on_conflict="signal_id",
+                     resolution="merge-duplicates")
+        return len(rows)
+
     def close(self) -> None:
         self.session.close()
