@@ -21,6 +21,7 @@ def _d(s: str) -> date:
 def compute_trade_returns(cfg: Config, ds: Dataset) -> tuple[list[dict], dict]:
     horizons = cfg["backtest"]["horizons_trading_days"]
     bankrupt = set(cfg["backtest"].get("bankruptcy_isins", []) or [])
+    max_return = cfg["backtest"].get("max_stock_return")
 
     rows: list[dict] = []
     stats = {"buys": len(ds.buys), "computed": 0, "no_price": 0, "no_entry": 0}
@@ -52,7 +53,8 @@ def compute_trade_returns(cfg: Config, ds: Dataset) -> tuple[list[dict], dict]:
         entry_set = False
         for idx, hz in enumerate(horizons):
             res = compute_horizon(
-                ds.calendar, series, ds.benchmark, pub, hz, slippage, is_bankrupt
+                ds.calendar, series, ds.benchmark, pub, hz, slippage, is_bankrupt,
+                max_return=max_return,
             )
             if res is None:
                 continue

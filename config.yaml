@@ -109,6 +109,9 @@ backtest:
   # Kända konkurser -> avkastning sätts till -100 % (survivorship). Avnoterade utan
   # post här antas uppköpta och värderas till sista kurs.
   bankruptcy_isins: []
+  # Winsorisering: tak för enskild aktieavkastning (dämpar penny-stock-extremer i
+  # scoren). 5.0 = +500 %. Golv är naturligt -100 %.
+  max_stock_return: 5.0
 
 telegram:
   enabled: true

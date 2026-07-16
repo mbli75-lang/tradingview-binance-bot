@@ -92,6 +92,15 @@ def test_bankruptcy_is_minus_100pct():
     assert r.stock_return == -1.0
 
 
+def test_winsorize_caps_extreme_return():
+    cal = make_calendar(date(2024, 1, 1), 30)
+    # aktie 100x (penny stock): 1 -> 100 vid +21 dagar = +9900 %
+    stock = [(cal[i], 1.0 if i < 21 else 100.0) for i in range(30)]
+    bench = flat_series(cal, 500.0)
+    r = compute_horizon(cal, stock, bench, cal[0], 21, slippage=0.0, max_return=5.0)
+    assert r.stock_return == pytest.approx(5.0)  # kapat till +500 %
+
+
 def test_no_entry_price_returns_none():
     cal = make_calendar(date(2024, 1, 1), 30)
     stock = [(cal[i], 100.0) for i in range(30)]

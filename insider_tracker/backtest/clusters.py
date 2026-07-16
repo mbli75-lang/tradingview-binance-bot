@@ -60,6 +60,7 @@ def detect_clusters(cfg: Config, ds: Dataset) -> list[dict]:
 
 def backtest_clusters(cfg: Config, ds: Dataset, clusters: list[dict]) -> list[dict]:
     horizons = cfg["backtest"]["horizons_trading_days"]
+    max_return = cfg["backtest"].get("max_stock_return")
     for cl in clusters:
         isin = cl["company_isin"]
         series = ds.stock.get(isin)
@@ -72,7 +73,8 @@ def backtest_clusters(cfg: Config, ds: Dataset, clusters: list[dict]) -> list[di
         trigger = _d(cl["trigger_date"])
         entry_set = False
         for idx, hz in enumerate(horizons):
-            res = compute_horizon(ds.calendar, series, ds.benchmark, trigger, hz, slippage)
+            res = compute_horizon(ds.calendar, series, ds.benchmark, trigger, hz,
+                                  slippage, max_return=max_return)
             if res is None:
                 continue
             if not entry_set:

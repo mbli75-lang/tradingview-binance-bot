@@ -63,6 +63,7 @@ def compute_horizon(
     horizon_days: int,
     slippage: float,
     is_bankrupt: bool = False,
+    max_return: float | None = None,
 ) -> HorizonResult | None:
     """Beräkna avkastning för en horisont. None om entry saknas helt."""
     i0 = entry_index(calendar, publish_date)
@@ -101,6 +102,9 @@ def compute_horizon(
             return None
         exit_price = s_exit[1]
         stock_return = exit_price / entry_price - 1.0
+        # Winsorisering: tak för enskild avkastning (dämpar penny-stock-extremer).
+        if max_return is not None and stock_return > max_return:
+            stock_return = max_return
         if exit_reached and last_stock_date < exit_cal_date:
             # Bolaget slutade handlas före exit -> sista kurs (uppköpsantagande).
             status = "delisted"

@@ -102,6 +102,12 @@ class SupabaseRestRepository:
         ret = "return=representation" if return_repr else "return=minimal"
         # Ren insert (utan on_conflict) tar ingen resolution.
         prefer = f"resolution={resolution},{ret}" if on_conflict else ret
+        # PostgREST kräver att alla objekt i en bulk har samma nyckeluppsättning
+        # (PGRST102). Normalisera: fyll saknade nycklar med None.
+        all_keys: set[str] = set()
+        for r in rows:
+            all_keys.update(r.keys())
+        rows = [{k: r.get(k) for k in all_keys} for r in rows]
         result: list[dict] = []
         for i in range(0, len(rows), _CHUNK):
             chunk = rows[i : i + _CHUNK]
