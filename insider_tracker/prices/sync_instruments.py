@@ -47,6 +47,9 @@ def run_sync() -> dict:
             segment = segment_map.get(inst.market_id) if inst.market_id else None
             rows.append({
                 "isin": c["isin"],
+                # name måste med: PostgREST-upsert är INSERT..ON CONFLICT och
+                # companies.name är NOT NULL. Behåller FI:s namn oförändrat.
+                "name": c["name"],
                 "borsdata_ins_id": inst.ins_id,
                 "segment": segment,
                 "sector": sectors.get(inst.sector_id) if inst.sector_id else None,

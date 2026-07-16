@@ -216,7 +216,7 @@ class SupabaseRestRepository:
         offset = 0
         while True:
             resp = self._request("GET", "companies", params={
-                "select": "isin,borsdata_ins_id,segment", "limit": "1000",
+                "select": "isin,name,borsdata_ins_id,segment", "limit": "1000",
                 "offset": str(offset),
             })
             batch = resp.json()

@@ -179,10 +179,11 @@ class Repository:
     # ---------- steg 2: berikning + kurser ----------
     def tracked_companies(self) -> list[dict]:
         rows = self.session.execute(
-            select(Company.isin, Company.borsdata_ins_id, Company.segment)
+            select(Company.isin, Company.name, Company.borsdata_ins_id, Company.segment)
         ).all()
         return [
-            {"isin": r[0], "borsdata_ins_id": r[1], "segment": r[2]} for r in rows
+            {"isin": r[0], "name": r[1], "borsdata_ins_id": r[2], "segment": r[3]}
+            for r in rows
         ]
 
     def update_companies_meta(self, rows: list[dict]) -> int:
