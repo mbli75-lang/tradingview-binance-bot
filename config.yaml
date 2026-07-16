@@ -77,6 +77,7 @@ alerts:
   liquidity_warning_sek_per_day: 500000
   lookback_days: 5                    # utvärdera köp/sälj publicerade senaste N dagarna
   liquidity_window_days: 30           # snitt daglig omsättning över N dagar
+  min_amount_sek: 50000               # trigga inte köp-alerts på symbolköp under detta
   fi_search_base: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
 
 # Kursdata (steg 2). Börsdata primär, EODHD fallback.

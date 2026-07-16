@@ -88,6 +88,10 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None) 
         sc = scores.get(t["insider_id"])
         if not sc or threshold is None or sc["score"] < threshold:
             continue
+        # Trigga inte på symbolköp (spec: symboliska köp viktas ner; här filtreras de).
+        amt = t.get("amount_sek")
+        if amt is not None and float(amt) < a.get("min_amount_sek", 0):
+            continue
         isin = t["company_isin"]
         key = (isin, t["insider_id"], "insider_buy", t["publish_date"][:10])
         if key in seen:
