@@ -1,0 +1,40 @@
+name: Insider-Tracker – daglig pipeline
+
+# Kör hela dagliga pipelinen (ingest -> kurser -> backtest -> alerts -> paper-loggning).
+# Paper-loggningen körs sist och ALLTID, så validerings­underlaget byggs framåt.
+#
+# OBS: schemalagda workflows triggar bara från repots default-branch (main).
+# Merga denna fil till main för att schemat ska aktiveras. workflow_dispatch
+# (manuell körning via Actions-fliken) fungerar oavsett.
+
+on:
+  schedule:
+    # 17:00 UTC vardagar = 18:00 CET / 19:00 CEST, efter FI:s dagliga uppdatering.
+    - cron: "0 17 * * 1-5"
+  workflow_dispatch: {}
+
+concurrency:
+  group: insider-daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Installera beroenden
+        run: pip install -r requirements-insider.txt
+      - name: Kör daglig pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BORSDATA_API_KEY: ${{ secrets.BORSDATA_API_KEY }}
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m insider_tracker.pipeline --daily
