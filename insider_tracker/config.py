@@ -12,6 +12,31 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
 
 
+def _load_dotenv(path: Path) -> None:
+    """Minimal .env-inläsare (utan externt beroende).
+
+    Sätter endast variabler som inte redan finns i miljön (riktiga env-variabler
+    vinner). Hoppar över kommentarer och tomma rader. Stödjer valfritt 'export '-
+    prefix och enkla/dubbla citattecken kring värdet.
+    """
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv(REPO_ROOT / ".env")
+
+
 class Config:
     """Tunn wrapper kring den inlästa YAML-dicten med lite bekvämlighet."""
 
