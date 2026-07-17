@@ -1,0 +1,36 @@
+name: Insider-Tracker – veckorapport
+
+# Uppdaterar paper-loggen och skickar veckosammanfattningen till Telegram.
+# Schemat aktiveras när filen ligger på default-branch (main).
+
+on:
+  schedule:
+    # 07:00 UTC måndagar.
+    - cron: "0 7 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: insider-weekly
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Installera beroenden
+        run: pip install -r requirements-insider.txt
+      - name: Kör veckorapport
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BORSDATA_API_KEY: ${{ secrets.BORSDATA_API_KEY }}
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m insider_tracker.pipeline --weekly

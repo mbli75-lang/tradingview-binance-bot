@@ -1,0 +1,13 @@
+# Insider-Tracker – självhostat cron-alternativ (om du inte kör GitHub Actions).
+# Installera med:  crontab scripts/crontab.example
+# Kräver att miljövariablerna finns (t.ex. i en .env som pipelinen läser, eller i
+# cron-miljön): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, BORSDATA_API_KEY,
+# EODHD_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
+
+# Byt /path/to/repo mot din faktiska sökväg.
+
+# Daglig pipeline (vardagar 18:00 CET) – inkl. automatisk paper-loggning sist.
+0 18 * * 1-5  cd /path/to/repo && /usr/bin/python3 -m insider_tracker.pipeline --daily >> logs/cron.log 2>&1
+
+# Veckorapport (måndagar 08:00).
+0 8 * * 1     cd /path/to/repo && /usr/bin/python3 -m insider_tracker.pipeline --weekly >> logs/cron.log 2>&1

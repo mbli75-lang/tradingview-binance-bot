@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Insider-Tracker: lokal data & loggar (persisteras inte i git; flyttas till Supabase)
+data/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Miljö
+.env
