@@ -118,6 +118,18 @@ backtest:
   # scoren). 5.0 = +500 %. Golv är naturligt -100 %.
   max_stock_return: 5.0
 
+# Conviction-sizing: tänkt positionsstorlek per signal (för utvärdering på papper).
+# Rent teoretiskt – inga riktiga pengar. Större övertygelse -> större position,
+# kapad mot likviditeten så en tänkt order inte spränger dagsomsättningen.
+sizing:
+  portfolio_sek: 100000          # teoretisk portföljstorlek
+  base_position_pct: 0.05        # baspositions-storlek (av portföljen) vid neutral övertygelse
+  min_conviction_mult: 0.5       # lägst flaggad score -> minsta position
+  max_conviction_mult: 2.0       # högst score -> största position
+  cluster_mult: 1.5              # klustersignal (ingen enskild score)
+  max_position_pct: 0.15         # tak på positionsandel oavsett övertygelse
+  max_pct_of_adv: 0.10           # tak: position <= X % av snittomsättning/dag (likviditet)
+
 # Paper trading – framåt-validering (out-of-sample).
 paper:
   exit_rule: "hold_3m"                  # regeln paper-positionen följer (hold_3m|trailing_15|insider_sell)

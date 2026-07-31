@@ -260,6 +260,11 @@ class PaperTrade(Base):
     entry_price_realistic: Mapped[float | None] = mapped_column(Float)  # nästa dags öppning
     avg_daily_turnover_30d: Mapped[float | None] = mapped_column(Float)
     executable: Mapped[bool | None] = mapped_column(Boolean)  # omsättning >= tröskel
+    # Conviction-sizing (för utvärdering på papper): tänkt positionsstorlek som
+    # skalas med övertygelse (score/kluster) och kapas mot likviditet.
+    conviction_mult: Mapped[float | None] = mapped_column(Float)
+    intended_position_pct: Mapped[float | None] = mapped_column(Float)   # av teoretisk portfölj
+    intended_position_sek: Mapped[float | None] = mapped_column(Float)   # absolut belopp
 
     exit_rule: Mapped[str | None] = mapped_column(String(24))
     status: Mapped[str | None] = mapped_column(String(16))  # pending_entry | open | closed

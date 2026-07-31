@@ -17,6 +17,7 @@ from insider_tracker.backtest.returns import price_asof
 from insider_tracker.config import Config
 from insider_tracker.exits.rules import compute_exits
 from insider_tracker.paper.data import load_ohlc
+from insider_tracker.paper.sizing import intended_position
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,12 @@ def sync_paper_trades(cfg: Config) -> dict:
                                 type="eq.sell"):
             sells[(t["insider_id"], t["company_isin"])].append(_d(t["publish_date"]))
 
+    # Conviction-sizing: skala mellan lägst flaggad score (topp-20%-tröskeln) och
+    # högsta score. Kluster använder egen multiplikator.
+    score_vals = sorted(v for v in scores.values() if v is not None)
+    score_lo = score_vals[int(0.80 * len(score_vals))] if score_vals else 0.0
+    score_hi = score_vals[-1] if score_vals else 0.0
+
     rows: list[dict] = []
     stats = {"total": len(signals), "pending_entry": 0, "open": 0, "closed": 0, "no_price": 0}
 
@@ -65,11 +72,18 @@ def sync_paper_trades(cfg: Config) -> dict:
         real = ohlc.open_asof_next(isin, cal[i0]) if i0 < len(cal) else None
         turnover = ohlc.turnover_30d(isin, sig_date)
 
+        pos = intended_position(
+            cfg, scores.get(sig["insider_id"]), sig["signal_type"] == "cluster",
+            turnover, score_lo, score_hi)
+
         row = {
             "signal_id": sig["id"], "signal_date": sig["signal_date"][:10], "isin": isin,
             "company": comp.get("name"), "marketplace": comp.get("marketplace"),
             "segment": comp.get("segment"), "insider_id": sig["insider_id"],
             "role": roles.get((sig["insider_id"], isin)),
+            "conviction_mult": pos.conviction_mult,
+            "intended_position_pct": pos.pct,
+            "intended_position_sek": pos.sek,
             "insider_score": scores.get(sig["insider_id"]),
             "signal_type": sig["signal_type"],
             "entry_price_theoretical": theo[1] if theo else None,
