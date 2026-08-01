@@ -74,6 +74,24 @@ def build_cluster_alert(cfg: Config, ctx: dict) -> str:
     return "\n".join(lines)
 
 
+def build_cobuy_alert(cfg: Config, ctx: dict) -> str:
+    """ctx: company, marketplace, segment, n_insiders, insiders (namn+roll-lista),
+    window_start, trigger_date, turnover, issuer."""
+    e = html.escape
+    seg = f" · {e(ctx['segment'])}" if ctx.get("segment") else ""
+    who = "\n".join(f"   • {e(n)}" for n in ctx.get("insiders", []))
+    lines = [
+        "🟣 <b>INFO: sam-köp</b> (flera insiders, under klustertröskeln)",
+        f"<b>{e(ctx['company'])}</b> ({e(ctx.get('marketplace') or '?')}{seg})",
+        f"👥 {ctx['n_insiders']} unika insiders köpte "
+        f"({ctx.get('window_start')} → {ctx.get('trigger_date')}):",
+        who,
+        _liquidity_line(cfg, ctx.get("turnover")),
+        f'🔗 <a href="{fi_link(cfg, ctx.get("issuer"))}">FI-posten</a>',
+    ]
+    return "\n".join(lines)
+
+
 def build_sell_alert(cfg: Config, ctx: dict) -> str:
     """ctx: company, marketplace, insider, role, amount_sek, publish_date, issuer."""
     e = html.escape

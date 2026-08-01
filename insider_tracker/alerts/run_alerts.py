@@ -16,9 +16,11 @@ import logging
 import statistics
 from datetime import date, timedelta
 
+from insider_tracker.alerts.cobuy import detect_cobuys
 from insider_tracker.alerts.formatting import (
     build_buy_alert,
     build_cluster_alert,
+    build_cobuy_alert,
     build_sell_alert,
 )
 from insider_tracker.alerts.liquidity import avg_daily_turnover
@@ -80,7 +82,7 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
 
     messages: list[str] = []
     new_signals: list[dict] = []
-    stats = {"buy": 0, "cluster": 0, "sell": 0}
+    stats = {"buy": 0, "cluster": 0, "cobuy": 0, "sell": 0}
 
     # --- Trigger 1: köp av högt scorad insider ---
     for t in recent:
@@ -134,6 +136,40 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
                             "insider_id": None, "signal_type": "cluster", "status": "open"})
         seen.add(key)
         stats["cluster"] += 1
+
+    # --- Trigger 2b: sam-köp (2+ insiders under klustertröskeln), info-nivå ---
+    cluster_min = cfg["scoring"]["cluster_min_insiders"]
+    cobuy_min = a["cobuy_min_insiders"]
+    cobuy_win = a["cobuy_window_days"]
+    wide_cut = (date.today() - timedelta(days=lookback + cobuy_win)).isoformat()
+    wide_buys = repo.fetch_all(
+        "transactions", "insider_id,company_isin,publish_date",
+        type="eq.buy", publish_date=f"gte.{wide_cut}")
+    buys_parsed = [{"company_isin": b["company_isin"], "insider_id": b["insider_id"],
+                    "publish_date": date.fromisoformat(b["publish_date"][:10])}
+                   for b in wide_buys]
+    for cb in detect_cobuys(buys_parsed, cobuy_win, cobuy_min, cluster_min,
+                            since=date.fromisoformat(cutoff)):
+        isin = cb["isin"]
+        trig = cb["trigger_date"].isoformat()
+        key = (isin, None, "cobuy", trig)
+        if key in seen:
+            continue
+        comp = companies.get(isin, {})
+        if not record_only:
+            names = [f"{insiders.get(i,'?')} – {roles.get((i,isin)) or 'okänd roll'}"
+                     for i in cb["insiders"]]
+            messages.append(build_cobuy_alert(cfg, {
+                "company": comp.get("name") or isin, "issuer": comp.get("name"),
+                "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
+                "n_insiders": cb["n_insiders"], "insiders": names,
+                "window_start": (cb["trigger_date"] - timedelta(days=cobuy_win)).isoformat(),
+                "trigger_date": trig, "turnover": turnover(isin),
+            }))
+        new_signals.append({"signal_date": trig, "isin": isin, "insider_id": None,
+                            "signal_type": "cobuy", "status": "info"})
+        seen.add(key)
+        stats["cobuy"] = stats.get("cobuy", 0) + 1
 
     # --- Trigger 3: försäljning av tidigare köpflaggad insider ---
     for t in recent:

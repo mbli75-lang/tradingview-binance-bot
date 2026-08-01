@@ -78,6 +78,9 @@ alerts:
   lookback_days: 5                    # utvärdera köp/sälj publicerade senaste N dagarna
   liquidity_window_days: 30           # snitt daglig omsättning över N dagar
   min_amount_sek: 50000               # trigga inte köp-alerts på symbolköp under detta
+  # Sam-köp (info): 2+ unika insiders inom fönstret, men under klustertröskeln (≥3).
+  cobuy_min_insiders: 2
+  cobuy_window_days: 14
   fi_search_base: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
 
 # Kursdata (steg 2). Börsdata primär, EODHD fallback.
