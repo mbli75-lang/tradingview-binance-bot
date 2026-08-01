@@ -92,6 +92,25 @@ def build_cobuy_alert(cfg: Config, ctx: dict) -> str:
     return "\n".join(lines)
 
 
+def build_cobuy_digest(cfg: Config, items: list[dict]) -> str:
+    """Grupperad sam-köp-digest: flera bolag i ETT meddelande (mindre rörigt)."""
+    e = html.escape
+    warn = cfg["alerts"]["liquidity_warning_sek_per_day"]
+    lines = [f"🟣 <b>Sam-köp (info) — {len(items)} bolag</b> "
+             f"(flera insiders, under klustertröskeln)"]
+    for c in items:
+        seg = f" · {e(c['segment'])}" if c.get("segment") else ""
+        turnover = c.get("turnover")
+        liq = " ⚠️ låg likv." if (turnover is not None and turnover < warn) else ""
+        who = ", ".join(e(n) for n in c.get("insiders", []))
+        lines.append("")
+        lines.append(f"• <b>{e(c['company'])}</b> ({e(c.get('marketplace') or '?')}{seg}) — "
+                     f"{c['n_insiders']} insiders{liq}")
+        lines.append(f"   {who}")
+        lines.append(f'   <a href="{fi_link(cfg, c.get("issuer"))}">FI-posten</a> · {c.get("trigger_date")}')
+    return "\n".join(lines)
+
+
 def build_sell_alert(cfg: Config, ctx: dict) -> str:
     """ctx: company, marketplace, insider, role, amount_sek, publish_date, issuer."""
     e = html.escape

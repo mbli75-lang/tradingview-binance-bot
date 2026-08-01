@@ -21,6 +21,7 @@ from insider_tracker.alerts.formatting import (
     build_buy_alert,
     build_cluster_alert,
     build_cobuy_alert,
+    build_cobuy_digest,
     build_sell_alert,
 )
 from insider_tracker.alerts.liquidity import avg_daily_turnover
@@ -148,6 +149,7 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
     buys_parsed = [{"company_isin": b["company_isin"], "insider_id": b["insider_id"],
                     "publish_date": date.fromisoformat(b["publish_date"][:10])}
                    for b in wide_buys]
+    cobuy_ctx: list[dict] = []
     for cb in detect_cobuys(buys_parsed, cobuy_win, cobuy_min, cluster_min,
                             since=date.fromisoformat(cutoff)):
         isin = cb["isin"]
@@ -159,17 +161,21 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
         if not record_only:
             names = [f"{insiders.get(i,'?')} – {roles.get((i,isin)) or 'okänd roll'}"
                      for i in cb["insiders"]]
-            messages.append(build_cobuy_alert(cfg, {
+            cobuy_ctx.append({
                 "company": comp.get("name") or isin, "issuer": comp.get("name"),
                 "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
                 "n_insiders": cb["n_insiders"], "insiders": names,
                 "window_start": (cb["trigger_date"] - timedelta(days=cobuy_win)).isoformat(),
                 "trigger_date": trig, "turnover": turnover(isin),
-            }))
+            })
         new_signals.append({"signal_date": trig, "isin": isin, "insider_id": None,
                             "signal_type": "cobuy", "status": "info"})
         seen.add(key)
         stats["cobuy"] = stats.get("cobuy", 0) + 1
+    # Gruppera: flera sam-köp -> en digest; enstaka -> vanlig detaljerad notis.
+    if cobuy_ctx:
+        messages.append(build_cobuy_digest(cfg, cobuy_ctx) if len(cobuy_ctx) > 1
+                        else build_cobuy_alert(cfg, cobuy_ctx[0]))
 
     # --- Trigger 3: försäljning av tidigare köpflaggad insider ---
     for t in recent:
