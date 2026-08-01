@@ -78,6 +78,9 @@ alerts:
   lookback_days: 5                    # utvärdera köp/sälj publicerade senaste N dagarna
   liquidity_window_days: 30           # snitt daglig omsättning över N dagar
   min_amount_sek: 50000               # trigga inte köp-alerts på symbolköp under detta
+  # Sam-köp (info): 2+ unika insiders inom fönstret, men under klustertröskeln (≥3).
+  cobuy_min_insiders: 2
+  cobuy_window_days: 14
   fi_search_base: "https://marknadssok.fi.se/Publiceringsklient/sv-SE/Search/Search"
 
 # Kursdata (steg 2). Börsdata primär, EODHD fallback.
@@ -117,6 +120,18 @@ backtest:
   # Winsorisering: tak för enskild aktieavkastning (dämpar penny-stock-extremer i
   # scoren). 5.0 = +500 %. Golv är naturligt -100 %.
   max_stock_return: 5.0
+
+# Conviction-sizing: tänkt positionsstorlek per signal (för utvärdering på papper).
+# Rent teoretiskt – inga riktiga pengar. Större övertygelse -> större position,
+# kapad mot likviditeten så en tänkt order inte spränger dagsomsättningen.
+sizing:
+  portfolio_sek: 100000          # teoretisk portföljstorlek
+  base_position_pct: 0.05        # baspositions-storlek (av portföljen) vid neutral övertygelse
+  min_conviction_mult: 0.5       # lägst flaggad score -> minsta position
+  max_conviction_mult: 2.0       # högst score -> största position
+  cluster_mult: 1.5              # klustersignal (ingen enskild score)
+  max_position_pct: 0.15         # tak på positionsandel oavsett övertygelse
+  max_pct_of_adv: 0.10           # tak: position <= X % av snittomsättning/dag (likviditet)
 
 # Paper trading – framåt-validering (out-of-sample).
 paper:
