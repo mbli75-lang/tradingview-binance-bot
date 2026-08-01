@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from insider_tracker.alerts.liquidity import avg_daily_turnover
 from insider_tracker.alerts.run_alerts import _percentile
-from insider_tracker.alerts.formatting import build_buy_alert, fmt_sek, fmt_pct
+from insider_tracker.alerts.formatting import (
+    build_buy_alert, build_cobuy_digest, fmt_sek, fmt_pct,
+)
 from insider_tracker.config import load_config
 
 
@@ -48,3 +50,20 @@ def test_build_buy_alert_contains_key_fields():
     assert "LÅG LIKVIDITET" in msg          # 300k < 500k tröskel
     assert "marknadssok.fi.se" in msg       # FI-länk
     assert "+12.0%" in msg                  # snitt 3m
+
+
+def test_build_cobuy_digest_groups_multiple():
+    cfg = load_config()
+    items = [
+        {"company": "Bolag A", "issuer": "Bolag A", "marketplace": "Spotlight",
+         "segment": "Spotlight", "n_insiders": 2, "insiders": ["X – VD", "Y – styrelse"],
+         "trigger_date": "2026-07-31", "turnover": 10000},   # < 500k -> låg likv.
+        {"company": "Bolag B", "issuer": "Bolag B", "marketplace": "Nasdaq Stockholm",
+         "segment": "Mid Cap", "n_insiders": 2, "insiders": ["Z – CFO", "W – styrelse"],
+         "trigger_date": "2026-07-30", "turnover": 5_000_000},
+    ]
+    msg = build_cobuy_digest(cfg, items)
+    assert "2 bolag" in msg
+    assert "Bolag A" in msg and "Bolag B" in msg
+    assert "låg likv." in msg               # A är illikvid
+    assert msg.count("FI-posten") == 2      # en länk per bolag
