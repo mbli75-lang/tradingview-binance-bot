@@ -56,14 +56,17 @@ def test_build_cobuy_digest_groups_multiple():
     cfg = load_config()
     items = [
         {"company": "Bolag A", "issuer": "Bolag A", "marketplace": "Spotlight",
-         "segment": "Spotlight", "n_insiders": 2, "insiders": ["X – VD", "Y – styrelse"],
-         "trigger_date": "2026-07-31", "turnover": 10000},   # < 500k -> låg likv.
+         "segment": "Spotlight", "n_insiders": 2, "trigger_date": "2026-07-31",
+         "turnover": 10000,   # < 500k -> låg likv.
+         "buyers": [{"name": "X", "role": "VD", "amount": 92000, "price": 91.0, "n_buys": 1}]},
         {"company": "Bolag B", "issuer": "Bolag B", "marketplace": "Nasdaq Stockholm",
-         "segment": "Mid Cap", "n_insiders": 2, "insiders": ["Z – CFO", "W – styrelse"],
-         "trigger_date": "2026-07-30", "turnover": 5_000_000},
+         "segment": "Mid Cap", "n_insiders": 2, "trigger_date": "2026-07-30",
+         "turnover": 5_000_000,
+         "buyers": [{"name": "Z", "role": "CFO", "amount": 500000, "price": 45.5, "n_buys": 2}]},
     ]
     msg = build_cobuy_digest(cfg, items)
     assert "2 bolag" in msg
     assert "Bolag A" in msg and "Bolag B" in msg
     assert "låg likv." in msg               # A är illikvid
     assert msg.count("FI-posten") == 2      # en länk per bolag
+    assert "92 000 kr" in msg and "91,00 kr" in msg   # belopp + kurs per köpare
