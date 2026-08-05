@@ -70,8 +70,32 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
 
     recent = repo.fetch_all(
         "transactions",
-        "id,insider_id,company_isin,type,amount_sek,is_related_party,publish_date",
+        "id,insider_id,company_isin,type,amount_sek,volume,price,is_related_party,publish_date",
         publish_date=f"gte.{cutoff}")
+
+    def buyers_breakdown(isin: str, window_start: str, trigger_date: str) -> list[dict]:
+        """Per köpare i fönstret: namn, roll, totalt belopp, volymviktad kurs."""
+        rows = repo.fetch_all(
+            "transactions", "insider_id,volume,price,amount_sek,publish_date",
+            company_isin=f"eq.{isin}", type="eq.buy", publish_date=f"gte.{window_start}")
+        agg: dict[int, dict] = {}
+        for r in rows:
+            if r["publish_date"][:10] > trigger_date:
+                continue
+            iid = r["insider_id"]
+            a = agg.setdefault(iid, {"amount": 0.0, "vol": 0.0, "volpris": 0.0, "n": 0})
+            amt = float(r["amount_sek"]) if r.get("amount_sek") is not None else 0.0
+            vol = float(r["volume"]) if r.get("volume") is not None else 0.0
+            prc = float(r["price"]) if r.get("price") is not None else 0.0
+            a["amount"] += amt; a["vol"] += vol; a["volpris"] += vol * prc; a["n"] += 1
+        out = []
+        for iid, a in agg.items():
+            vwap = (a["volpris"] / a["vol"]) if a["vol"] else None
+            out.append({"name": insiders.get(iid, "?"),
+                        "role": roles.get((iid, isin)),
+                        "amount": a["amount"], "price": vwap, "n_buys": a["n"]})
+        out.sort(key=lambda b: b["amount"], reverse=True)
+        return out
     clusters = repo.fetch_all(
         "clusters", "company_isin,trigger_date,window_start,n_insiders,n_buys",
         trigger_date=f"gte.{cutoff}")
@@ -108,6 +132,7 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
                 "insider": insiders.get(t["insider_id"], "?"),
                 "role": roles.get((t["insider_id"], isin)),
                 "amount_sek": t.get("amount_sek"), "is_related_party": t.get("is_related_party"),
+                "price": t.get("price"), "volume": t.get("volume"),
                 "n_trades": sc["n_trades"], "avg_return_3m": sc["avg_return_3m"],
                 "score": sc["score"], "turnover": turnover(isin),
                 "publish_date": t["publish_date"][:10],
@@ -132,6 +157,7 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
                 "n_insiders": cl["n_insiders"], "n_buys": cl["n_buys"],
                 "window_start": cl["window_start"][:10], "trigger_date": cl["trigger_date"][:10],
                 "turnover": turnover(isin),
+                "buyers": buyers_breakdown(isin, cl["window_start"][:10], cl["trigger_date"][:10]),
             }))
         new_signals.append({"signal_date": cl["trigger_date"][:10], "isin": isin,
                             "insider_id": None, "signal_type": "cluster", "status": "open"})
@@ -159,14 +185,13 @@ def run_alerts(cfg: Config, dry_run: bool = False, lookback: int | None = None,
             continue
         comp = companies.get(isin, {})
         if not record_only:
-            names = [f"{insiders.get(i,'?')} – {roles.get((i,isin)) or 'okänd roll'}"
-                     for i in cb["insiders"]]
+            wstart = (cb["trigger_date"] - timedelta(days=cobuy_win)).isoformat()
             cobuy_ctx.append({
                 "company": comp.get("name") or isin, "issuer": comp.get("name"),
                 "marketplace": comp.get("marketplace"), "segment": comp.get("segment"),
-                "n_insiders": cb["n_insiders"], "insiders": names,
-                "window_start": (cb["trigger_date"] - timedelta(days=cobuy_win)).isoformat(),
-                "trigger_date": trig, "turnover": turnover(isin),
+                "n_insiders": cb["n_insiders"],
+                "buyers": buyers_breakdown(isin, wstart, trig),
+                "window_start": wstart, "trigger_date": trig, "turnover": turnover(isin),
             })
         new_signals.append({"signal_date": trig, "isin": isin, "insider_id": None,
                             "signal_type": "cobuy", "status": "info"})
