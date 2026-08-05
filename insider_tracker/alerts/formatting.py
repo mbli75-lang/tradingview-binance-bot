@@ -43,6 +43,14 @@ def fi_link(cfg: Config, issuer: str | None) -> str:
     return f"{base}?{urllib.parse.urlencode(params)}"
 
 
+def max_position(cfg: Config, turnover: float | None) -> float | None:
+    """Max rimlig position = andel av dagsomsättningen (samma kap som sizingen)."""
+    if turnover is None:
+        return None
+    pct = cfg["sizing"]["max_pct_of_adv"]
+    return turnover * pct
+
+
 def _liquidity_line(cfg: Config, turnover: float | None) -> str:
     warn = cfg["alerts"]["liquidity_warning_sek_per_day"]
     if turnover is None:
@@ -50,6 +58,8 @@ def _liquidity_line(cfg: Config, turnover: float | None) -> str:
     line = f"💧 Snittomsättning 30d: {fmt_sek(turnover)}/dag"
     if turnover < warn:
         line += " ⚠️ <b>LÅG LIKVIDITET</b>"
+    pct = int(round(cfg["sizing"]["max_pct_of_adv"] * 100))
+    line += f"\n   → max rimlig position ≈ {fmt_sek(max_position(cfg, turnover))} ({pct}% av oms.)"
     return line
 
 
@@ -129,6 +139,8 @@ def build_cobuy_digest(cfg: Config, items: list[dict]) -> str:
         for b in c.get("buyers", []):
             lines.append(f"   {e(b.get('name') or '?')}: {fmt_sek(b.get('amount'))} "
                          f"@ {fmt_price(b.get('price'))}")
+        if turnover is not None:
+            lines.append(f"   💧 {fmt_sek(turnover)}/dag → max ≈ {fmt_sek(max_position(cfg, turnover))}")
         lines.append(f'   <a href="{fi_link(cfg, c.get("issuer"))}">FI-posten</a> · {c.get("trigger_date")}')
     return "\n".join(lines)
 

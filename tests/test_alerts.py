@@ -1,10 +1,12 @@
 """Tester för alert-modulen (steg 4)."""
 from __future__ import annotations
 
+import pytest
+
 from insider_tracker.alerts.liquidity import avg_daily_turnover
 from insider_tracker.alerts.run_alerts import _percentile
 from insider_tracker.alerts.formatting import (
-    build_buy_alert, build_cobuy_digest, fmt_sek, fmt_pct,
+    build_buy_alert, build_cobuy_digest, fmt_sek, fmt_pct, max_position,
 )
 from insider_tracker.config import load_config
 
@@ -50,6 +52,23 @@ def test_build_buy_alert_contains_key_fields():
     assert "LÅG LIKVIDITET" in msg          # 300k < 500k tröskel
     assert "marknadssok.fi.se" in msg       # FI-länk
     assert "+12.0%" in msg                  # snitt 3m
+
+
+def test_max_position_is_pct_of_turnover():
+    cfg = load_config()
+    pct = cfg["sizing"]["max_pct_of_adv"]
+    assert max_position(cfg, 2_000_000) == pytest.approx(2_000_000 * pct)
+    assert max_position(cfg, None) is None
+
+
+def test_buy_alert_shows_max_position():
+    cfg = load_config()
+    msg = build_buy_alert(cfg, {
+        "company": "X AB", "issuer": "X AB", "marketplace": "Nasdaq Stockholm",
+        "insider": "A", "role": "VD", "amount_sek": 250000, "turnover": 2_000_000,
+        "n_trades": 5, "avg_return_3m": 0.1, "score": 0.2, "publish_date": "2026-08-05",
+    })
+    assert "max rimlig position" in msg
 
 
 def test_build_cobuy_digest_groups_multiple():
