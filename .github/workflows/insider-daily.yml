@@ -17,6 +17,11 @@ concurrency:
   group: insider-daily
   cancel-in-progress: false
 
+# contents: write behövs för heartbeat-committen nedan som håller repot "aktivt"
+# så att GitHub inte auto-avaktiverar schemat efter 60 dagars inaktivitet.
+permissions:
+  contents: write
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -38,3 +43,18 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m insider_tracker.pipeline --daily
+
+      # Heartbeat: skriver en tidsstämpel och committar den varje körning.
+      # Det räknas som repo-aktivitet och nollställer GitHubs 60-dagarsklocka,
+      # så det schemalagda jobbet aldrig auto-avaktiveras igen. Körs ALLTID,
+      # även om pipelinen ovan misslyckas, så klockan hålls levande oavsett.
+      - name: Heartbeat (håll repot aktivt mot auto-avaktivering)
+        if: always()
+        run: |
+          mkdir -p state
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > state/last_run.txt
+          git config user.name "insider-tracker-bot"
+          git config user.email "actions@github.com"
+          git add state/last_run.txt
+          git commit -m "chore: heartbeat $(date -u +%F)" || exit 0
+          git push
